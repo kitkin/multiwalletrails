@@ -15,7 +15,7 @@ that gap. Read-only: it never moves funds.
 ```bash
 cd dashboard
 npm install
-npm start            # http://localhost:5060
+npm start            # http://localhost:8000
 ```
 Требует запущенный SHKeeper eval-стек (см. ../deploy). Данные берутся из:
 - SHKeeper SQLite (`docker exec mwr-shkeeper`) — список адресов и заказов;
@@ -25,7 +25,7 @@ npm start            # http://localhost:5060
 ## Настройка (env)
 | Переменная | По умолчанию | Назначение |
 |---|---|---|
-| `PORT` | `5060` | порт панели |
+| `PORT` | `8000` | порт панели |
 | `SHKEEPER_URL` | `http://localhost:5050` | адрес SHKeeper API |
 | `SHKEEPER_CONTAINER` | `mwr-shkeeper` | имя контейнера для чтения SQLite |
 | `DEPOSIT_RPC` | Sepolia public | сеть, где живут адреса (балансы) |

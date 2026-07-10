@@ -13,7 +13,7 @@ const execFileP = promisify(execFile);
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 // ---- config (env-overridable) --------------------------------------------
-const PORT = Number(process.env.PORT || 5060);
+const PORT = Number(process.env.PORT || 8000); // 8000 is browser-safe; avoid 5060 (Chrome ERR_UNSAFE_PORT)
 const SHKEEPER_URL = process.env.SHKEEPER_URL || 'http://localhost:5050';
 const SHKEEPER_CONTAINER = process.env.SHKEEPER_CONTAINER || 'mwr-shkeeper';
 const CRYPTO = process.env.CRYPTO || 'ETH-USDT';

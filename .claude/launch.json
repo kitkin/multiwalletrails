@@ -6,7 +6,7 @@
       "runtimeExecutable": "node",
       "runtimeArgs": ["server.mjs"],
       "cwd": "dashboard",
-      "port": 5060
+      "port": 8000
     }
   ]
 }

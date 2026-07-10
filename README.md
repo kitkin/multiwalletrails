@@ -22,7 +22,7 @@ The goal, in the words of the original request: *"work like Electrum — generat
 | [docs/architecture.md](docs/architecture.md) | Task decomposition, OSS landscape, sweep-strategy comparison, recommendation | ✅ |
 | [poc/src/derive-hd.js](poc/src/derive-hd.js) | Derive N deposit addresses from one mnemonic (BIP-44) | ✅ tested |
 | [poc/src/create2-forwarder.js](poc/src/create2-forwarder.js) | Compute CREATE2 counterfactual forwarder addresses | ✅ tested |
-| [dashboard/](dashboard/) | Русскоязычная панель: список адресов + балансы + спидометр газа | ✅ running :5060 |
+| [dashboard/](dashboard/) | Русскоязычная панель: список адресов + балансы + спидометр газа | ✅ running :8000 |
 
 ## Quickstart (proof-of-concept)
 
