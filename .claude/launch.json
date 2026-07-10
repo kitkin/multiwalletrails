@@ -4,9 +4,20 @@
     {
       "name": "dashboard",
       "runtimeExecutable": "node",
-      "runtimeArgs": ["server.mjs"],
+      "runtimeArgs": [
+        "server.mjs"
+      ],
       "cwd": "dashboard",
       "port": 8000
+    },
+    {
+      "name": "demo",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "server.mjs"
+      ],
+      "cwd": "demo",
+      "port": 8001
     }
   ]
 }

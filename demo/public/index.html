@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Демо: приём USDT и сметание</title>
+<style>
+  :root{--bg:#0e1117;--card:#161b22;--line:#232a34;--txt:#e6edf3;--muted:#8b949e;--accent:#3b82f6;--green:#22c55e;--red:#ef4444;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+  header{padding:20px 24px;border-bottom:1px solid var(--line)}
+  h1{font-size:20px;margin:0}
+  .sub{color:var(--muted);font-size:13px;margin-top:3px}
+  .wrap{padding:24px;max-width:1100px;margin:0 auto}
+  .tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px}
+  @media(max-width:760px){.tiles{grid-template-columns:repeat(2,1fr)}}
+  .tile{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+  .tile .label{color:var(--muted);font-size:12px}
+  .tile .value{font-size:22px;font-weight:700;margin-top:4px}
+  .pos{color:var(--green)}
+  .bar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:18px}
+  button{background:var(--accent);color:#fff;border:0;border-radius:9px;padding:10px 16px;font-size:14px;font-weight:600;cursor:pointer}
+  button.sec{background:transparent;border:1px solid var(--line);color:var(--txt)}
+  button:disabled{opacity:.5;cursor:not-allowed}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px;margin-bottom:18px}
+  .card h2{font-size:13px;margin:0 0 12px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+  th{color:var(--muted);font-weight:600}
+  .addr{font-family:ui-monospace,Menlo,monospace}
+  .mut{color:var(--muted)}
+  .result{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+  @media(max-width:760px){.result{grid-template-columns:repeat(2,1fr)}}
+  .result .k{color:var(--muted);font-size:12px}
+  .result .v{font-size:20px;font-weight:700;margin-top:2px}
+  .status{font-size:13px;color:var(--muted);min-height:18px}
+  .note{font-size:12px;color:var(--muted);margin-top:10px;line-height:1.5}
+</style>
+</head>
+<body>
+<header>
+  <h1>Демо: приём USDT и сметание</h1>
+  <div class="sub">Локальный девнет · реальные транзакции и газ · без кранов. Токен: <span class="addr" id="token">…</span></div>
+</header>
+
+<div class="wrap">
+  <div class="tiles">
+    <div class="tile"><div class="label">Адресов с USDT</div><div class="value" id="t-funded">—</div></div>
+    <div class="tile"><div class="label">USDT на адресах</div><div class="value pos" id="t-usdt">—</div></div>
+    <div class="tile"><div class="label">В казне (treasury)</div><div class="value pos" id="t-treasury">—</div></div>
+    <div class="tile"><div class="label">Газ девнета</div><div class="value" id="t-gas" style="font-size:16px">—</div></div>
+  </div>
+
+  <div class="bar">
+    <button id="btn-topup" class="sec" onclick="act('topup', this)">⛽ Пополнить газ</button>
+    <button id="btn-sweep" onclick="act('sweep', this)">🧹 Сметание всех адресов</button>
+    <button id="btn-reseed" class="sec" onclick="act('reseed', this)">🔁 Пере-засеять USDT</button>
+    <span class="status" id="status"></span>
+  </div>
+
+  <div class="card" id="result-card" style="display:none">
+    <h2>Результат сметания</h2>
+    <div class="result">
+      <div><div class="k">Сметено адресов</div><div class="v" id="r-swept">—</div></div>
+      <div><div class="k">Собрано USDT</div><div class="v pos" id="r-usdt">—</div></div>
+      <div><div class="k">Газ всего</div><div class="v" id="r-gas">—</div></div>
+      <div><div class="k">Газ на адрес (сред.)</div><div class="v" id="r-avg">—</div></div>
+    </div>
+    <div class="note" id="r-cost"></div>
+  </div>
+
+  <div class="card">
+    <h2>Адреса приёма</h2>
+    <table>
+      <thead><tr><th>Заказ</th><th>Адрес</th><th>ETH (газ)</th><th>USDT</th></tr></thead>
+      <tbody id="rows"><tr><td colspan="4" class="mut">Загрузка…</td></tr></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+const ETH_USD = 3000, GAS_PER_ADDR_HINT = 86000;
+function fmt(n,d=2){return n==null?'—':Number(n).toLocaleString('ru-RU',{maximumFractionDigits:d})}
+function short(a){return a.slice(0,10)+'…'+a.slice(-6)}
+
+async function load(){
+  const d = await (await fetch('/api/state')).json();
+  if(!d.ready){ document.getElementById('status').textContent='девнет запускается…'; return; }
+  document.getElementById('token').textContent = d.token;
+  document.getElementById('t-funded').textContent = d.fundedCount;
+  document.getElementById('t-usdt').textContent = fmt(d.totalUsdt) + ' USDT';
+  document.getElementById('t-treasury').textContent = fmt(d.treasuryUsdt) + ' USDT';
+  document.getElementById('t-gas').textContent = fmt(d.gasPriceGwei,2) + ' gwei';
+  document.getElementById('rows').innerHTML = d.rows.map(r=>`
+    <tr>
+      <td>${r.order}</td>
+      <td class="addr">${short(r.addr)}</td>
+      <td class="${Number(r.eth)>0?'':'mut'}">${fmt(r.eth,4)}</td>
+      <td class="${Number(r.usdt)>0?'pos':'mut'}">${Number(r.usdt)>0?fmt(r.usdt)+' USDT':'—'}</td>
+    </tr>`).join('');
+
+  if(d.lastSweep){
+    const s=d.lastSweep;
+    document.getElementById('result-card').style.display='block';
+    document.getElementById('r-swept').textContent=s.swept;
+    document.getElementById('r-usdt').textContent=fmt(s.totalUsdt)+' USDT';
+    document.getElementById('r-gas').textContent=Number(s.totalGas).toLocaleString('ru-RU');
+    document.getElementById('r-avg').textContent=Number(s.avgGasPerAddr).toLocaleString('ru-RU');
+    const g = d.mainnetGwei||30;
+    const per1000 = GAS_PER_ADDR_HINT*1000; // fund+transfer per addr, real-world
+    const usdNow = per1000*g/1e9*ETH_USD, usd30 = per1000*30/1e9*ETH_USD;
+    document.getElementById('r-cost').innerHTML =
+      `Здесь газ бесплатный (девнет). В реальном mainnet тот же объём (~${GAS_PER_ADDR_HINT.toLocaleString('ru-RU')} газа на адрес с учётом заправки) для <b>1000 адресов</b> стоил бы ≈ <b>$${fmt(usdNow,0)}</b> при текущем газе (${fmt(g,2)} gwei) и ≈ <b>$${fmt(usd30,0)}</b> при 30 gwei. Это ~1 транзакция на адрес.`;
+  } else {
+    document.getElementById('result-card').style.display='none';
+  }
+}
+
+async function act(kind, btn){
+  const s=document.getElementById('status');
+  document.querySelectorAll('button').forEach(b=>b.disabled=true);
+  s.textContent = kind==='sweep'?'сметаем адреса…':kind==='topup'?'пополняем газ…':'засеваем USDT…';
+  try{
+    const r = await (await fetch('/api/'+kind,{method:'POST'})).json();
+    if(r.error) throw new Error(r.error);
+    s.textContent = 'готово';
+  }catch(e){ s.textContent='ошибка: '+e.message; }
+  await load();
+  document.querySelectorAll('button').forEach(b=>b.disabled=false);
+}
+
+load();
+setInterval(load, 5000);
+</script>
+</body>
+</html>

@@ -23,6 +23,7 @@ The goal, in the words of the original request: *"work like Electrum — generat
 | [poc/src/derive-hd.js](poc/src/derive-hd.js) | Derive N deposit addresses from one mnemonic (BIP-44) | ✅ tested |
 | [poc/src/create2-forwarder.js](poc/src/create2-forwarder.js) | Compute CREATE2 counterfactual forwarder addresses | ✅ tested |
 | [dashboard/](dashboard/) | Русскоязычная панель: список адресов + балансы + спидометр газа | ✅ running :8000 |
+| [demo/](demo/) | Локальный девнет: приём USDT → сметание с кнопками, реальный газ, без кранов | ✅ running :8001 |
 
 ## Quickstart (proof-of-concept)
 

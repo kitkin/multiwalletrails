@@ -1,0 +1,12 @@
+{
+  "name": "multi-wallet-rails-demo",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "dependencies": {
+    "express": "^5.2.1",
+    "ganache": "^7.9.2",
+    "solc": "^0.8.26",
+    "viem": "^2.21.0"
+  }
+}
