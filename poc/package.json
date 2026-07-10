@@ -1,0 +1,14 @@
+{
+  "name": "multi-wallet-rails-poc",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "description": "Proof-of-concept: HD deposit-address derivation + CREATE2 counterfactual forwarders for mass ETH/ERC-20 reception and sweeping.",
+  "scripts": {
+    "derive": "node src/derive-hd.js",
+    "create2": "node src/create2-forwarder.js"
+  },
+  "dependencies": {
+    "viem": "^2.21.0"
+  }
+}
