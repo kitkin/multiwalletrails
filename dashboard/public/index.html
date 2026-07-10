@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Multi-Wallet Rails — Панель кошельков</title>
+<style>
+  :root {
+    --bg:#0e1117; --card:#161b22; --line:#232a34; --txt:#e6edf3; --muted:#8b949e;
+    --accent:#3b82f6; --green:#22c55e; --yellow:#eab308; --red:#ef4444;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--txt);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; }
+  header { padding:20px 24px; border-bottom:1px solid var(--line); display:flex;
+    align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; }
+  h1 { font-size:20px; margin:0; }
+  .sub { color:var(--muted); font-size:13px; margin-top:2px; }
+  .wrap { padding:24px; max-width:1200px; margin:0 auto; }
+  .grid { display:grid; grid-template-columns:360px 1fr; gap:20px; align-items:start; }
+  @media (max-width:860px){ .grid{ grid-template-columns:1fr; } }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:20px; }
+  .card h2 { font-size:14px; margin:0 0 14px; color:var(--muted); font-weight:600;
+    text-transform:uppercase; letter-spacing:.04em; }
+  .tiles { display:grid; grid-template-columns:repeat(2,1fr); gap:12px; margin-bottom:20px; }
+  .tile { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px 16px; }
+  .tile .label { color:var(--muted); font-size:12px; }
+  .tile .value { font-size:22px; font-weight:700; margin-top:4px; }
+  .gauge-num { text-align:center; margin-top:-10px; }
+  .gauge-num b { font-size:40px; }
+  .gauge-num span { color:var(--muted); font-size:14px; }
+  .gaslegend { display:flex; justify-content:space-between; margin-top:8px; font-size:13px; }
+  .gaslegend div { text-align:center; flex:1; }
+  .gaslegend .g{color:var(--green)} .gaslegend .y{color:var(--yellow)} .gaslegend .r{color:var(--red)}
+  .gaslegend b { display:block; font-size:16px; }
+  .cost { margin-top:14px; padding-top:14px; border-top:1px solid var(--line); font-size:13px; color:var(--muted); }
+  .cost b { color:var(--txt); }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th, td { text-align:left; padding:9px 10px; border-bottom:1px solid var(--line); white-space:nowrap; }
+  th { color:var(--muted); font-weight:600; position:sticky; top:0; background:var(--card); }
+  .tbl-wrap { max-height:60vh; overflow:auto; border:1px solid var(--line); border-radius:12px; }
+  .addr { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; }
+  .mut { color:var(--muted); }
+  .badge { padding:2px 8px; border-radius:20px; font-size:11px; font-weight:600; }
+  .b-unpaid{ background:#30363d; color:#c9d1d9; }
+  .b-paid{ background:rgba(34,197,94,.15); color:var(--green); }
+  .b-partial{ background:rgba(234,179,8,.15); color:var(--yellow); }
+  .pos { color:var(--green); font-weight:600; }
+  button { background:var(--accent); color:#fff; border:0; border-radius:8px;
+    padding:8px 14px; font-size:13px; cursor:pointer; }
+  button.ghost { background:transparent; border:1px solid var(--line); color:var(--muted); padding:3px 8px; font-size:11px; }
+  a { color:var(--accent); text-decoration:none; }
+  .fee { margin-bottom:20px; }
+  .fee .addr { font-size:14px; }
+  .flex { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .refresh { color:var(--muted); font-size:12px; }
+  .err { color:var(--red); }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Multi-Wallet Rails — Панель кошельков</h1>
+    <div class="sub" id="sub">Уникальные адреса приёма и их балансы · <span id="net">…</span></div>
+  </div>
+  <div class="flex">
+    <span class="refresh" id="refresh">обновление…</span>
+    <button onclick="load()">Обновить</button>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="tiles">
+    <div class="tile"><div class="label">Всего адресов приёма</div><div class="value" id="t-count">—</div></div>
+    <div class="tile"><div class="label">Получено ETH (всего)</div><div class="value pos" id="t-eth">—</div></div>
+    <div class="tile"><div class="label">Получено USDT (всего)</div><div class="value pos" id="t-usdt">—</div></div>
+    <div class="tile"><div class="label">Сеть депозитов</div><div class="value" id="t-net" style="font-size:16px">—</div></div>
+  </div>
+
+  <div class="grid">
+    <div>
+      <div class="card" style="margin-bottom:20px">
+        <h2>⛽ Газ в сети Ethereum</h2>
+        <div id="gauge"></div>
+        <div class="gauge-num"><b id="g-avg">—</b> <span>gwei · средний</span></div>
+        <div class="gaslegend">
+          <div class="g">Медленно<b id="g-low">—</b></div>
+          <div class="y">Средне<b id="g-mid">—</b></div>
+          <div class="r">Быстро<b id="g-high">—</b></div>
+        </div>
+        <div class="cost" id="cost">…</div>
+      </div>
+
+      <div class="card fee">
+        <h2>🔑 Газовый кошелёк (для комиссий)</h2>
+        <div class="sub" style="margin-bottom:8px">Сюда нужно положить ETH — из него платится газ за выгрузку USDT со всех адресов.</div>
+        <div class="flex">
+          <span class="addr" id="fee-addr">—</span>
+        </div>
+        <div style="margin-top:8px">Баланс: <b id="fee-bal">—</b> ETH</div>
+        <div style="margin-top:10px"><a id="faucet" href="https://sepoliafaucet.com" target="_blank">Получить тестовый ETH (кран) →</a></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>📥 Сгенерированные адреса приёма</h2>
+      <div class="sub" style="margin-bottom:12px">Каждый заказ (order_id) получает свой уникальный адрес. Когда на адрес приходят деньги — они появятся в столбце баланса.</div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr>
+            <th>#</th><th>Заказ</th><th>Адрес</th><th>ETH</th><th>USDT</th><th>Ожидается</th><th>Статус</th><th></th>
+          </tr></thead>
+          <tbody id="rows"><tr><td colspan="8" class="mut">Загрузка…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const GWEI_MAX = 80;           // верх шкалы спидометра
+const GAS_PER_ADDR = 86000;    // фонд газа (21k) + перевод USDT (65k)
+const ETH_USD = 3000;          // грубая оценка для стоимости
+
+function polar(cx, cy, r, frac) { // frac 0..1 слева→направо по верхней дуге
+  const a = Math.PI * (1 - frac);
+  return [cx + r * Math.cos(a), cy - r * Math.sin(a)];
+}
+function arc(cx, cy, r, f0, f1) {
+  const [x0,y0] = polar(cx,cy,r,f0), [x1,y1] = polar(cx,cy,r,f1);
+  return `M ${x0} ${y0} A ${r} ${r} 0 0 1 ${x1} ${y1}`;
+}
+function drawGauge(avg) {
+  const cx=180, cy=190, r=140;
+  const f = Math.max(0, Math.min(1, avg / GWEI_MAX));
+  const zg = 15/GWEI_MAX, zy = 40/GWEI_MAX; // границы зон
+  const [nx,ny] = polar(cx,cy,r-26,f);
+  const svg = `
+  <svg viewBox="0 0 360 220" width="100%">
+    <path d="${arc(cx,cy,r,0,zg)}" stroke="var(--green)" stroke-width="20" fill="none" stroke-linecap="round"/>
+    <path d="${arc(cx,cy,r,zg,zy)}" stroke="var(--yellow)" stroke-width="20" fill="none"/>
+    <path d="${arc(cx,cy,r,zy,1)}" stroke="var(--red)" stroke-width="20" fill="none" stroke-linecap="round"/>
+    <line x1="${cx}" y1="${cy}" x2="${nx}" y2="${ny}" stroke="var(--txt)" stroke-width="4" stroke-linecap="round"/>
+    <circle cx="${cx}" cy="${cy}" r="8" fill="var(--txt)"/>
+    <text x="${polar(cx,cy,r+14,0)[0]}" y="${cy+6}" fill="var(--muted)" font-size="12" text-anchor="middle">0</text>
+    <text x="${cx}" y="30" fill="var(--muted)" font-size="12" text-anchor="middle">${GWEI_MAX/2}</text>
+    <text x="${polar(cx,cy,r+14,1)[0]}" y="${cy+6}" fill="var(--muted)" font-size="12" text-anchor="middle">${GWEI_MAX}+</text>
+  </svg>`;
+  document.getElementById('gauge').innerHTML = svg;
+}
+
+function fmt(n, d=4){ return n==null? '—' : Number(n).toLocaleString('ru-RU',{maximumFractionDigits:d}); }
+function shortAddr(a){ return a.slice(0,8)+'…'+a.slice(-6); }
+function badge(s){
+  const c = s==='PAID'?'b-paid': s&&s.includes('PARTIAL')?'b-partial':'b-unpaid';
+  const ru = s==='PAID'?'Оплачен': s&&s.includes('PARTIAL')?'Частично':'Ожидает';
+  return `<span class="badge ${c}">${ru}</span>`;
+}
+
+async function load(){
+  document.getElementById('refresh').textContent = 'обновление…';
+  try {
+    const r = await fetch('/api/state'); const d = await r.json();
+    if (d.error) throw new Error(d.error);
+    document.getElementById('net').textContent = d.network;
+    document.getElementById('t-net').textContent = d.network;
+    document.getElementById('t-count').textContent = d.count;
+    document.getElementById('t-eth').textContent = fmt(d.totalEth, 6);
+    document.getElementById('t-usdt').textContent = fmt(d.totalUsdt, 2);
+
+    if (d.gas) {
+      drawGauge(d.gas.average);
+      document.getElementById('g-avg').textContent = fmt(d.gas.average, 1);
+      document.getElementById('g-low').textContent = fmt(d.gas.low, 1);
+      document.getElementById('g-mid').textContent = fmt(d.gas.average, 1);
+      document.getElementById('g-high').textContent = fmt(d.gas.high, 1);
+      const ethCost = (GAS_PER_ADDR * 1000 * d.gas.average) / 1e9;
+      const ethHigh = (GAS_PER_ADDR * 1000 * d.gas.high) / 1e9;
+      document.getElementById('cost').innerHTML =
+        `Выгрузка <b>1000 адресов</b> при текущем газе ≈ <b>${fmt(ethCost,4)} ETH</b> (~$${fmt(ethCost*ETH_USD,0)}),<br>при быстром газе ≈ <b>${fmt(ethHigh,4)} ETH</b> (~$${fmt(ethHigh*ETH_USD,0)}). Это ~1 транзакция на адрес.`;
+    }
+
+    if (d.fee) {
+      document.getElementById('fee-addr').textContent = d.fee.addr;
+      document.getElementById('fee-bal').textContent = fmt(d.fee.eth, 6);
+    }
+    document.getElementById('faucet').href =
+      d.network.includes('Sepolia') ? 'https://sepoliafaucet.com' : d.explorer;
+
+    const tb = document.getElementById('rows');
+    tb.innerHTML = d.rows.map(row => `
+      <tr>
+        <td class="mut">${row.n}</td>
+        <td>${row.order}</td>
+        <td><a class="addr" href="${d.explorer}/address/${row.addr}" target="_blank">${shortAddr(row.addr)}</a></td>
+        <td class="${row.eth && Number(row.eth)>0?'pos':'mut'}">${fmt(row.eth,6)}</td>
+        <td class="${row.usdt && Number(row.usdt)>0?'pos':'mut'}">${row.usdt==null?'—':fmt(row.usdt,2)}</td>
+        <td class="mut">${fmt(row.expected,2)}</td>
+        <td>${badge(row.status)}</td>
+        <td><button class="ghost" onclick="navigator.clipboard.writeText('${row.addr}')">копир.</button></td>
+      </tr>`).join('');
+
+    const t = new Date(d.ts).toLocaleTimeString('ru-RU');
+    document.getElementById('refresh').textContent = 'обновлено в ' + t;
+  } catch(e) {
+    document.getElementById('refresh').innerHTML = '<span class="err">ошибка: '+e.message+'</span>';
+  }
+}
+load();
+setInterval(load, 15000);
+</script>
+</body>
+</html>

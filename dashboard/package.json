@@ -1,0 +1,14 @@
+{
+  "name": "multi-wallet-rails-dashboard",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "description": "Local control panel for the generated deposit addresses: balances, deposits, and a live Ethereum gas gauge. Russian UI.",
+  "scripts": {
+    "start": "node server.mjs"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "viem": "^2.21.0"
+  }
+}
