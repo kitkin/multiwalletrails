@@ -1,0 +1,2 @@
+CREATE DATABASE IF NOT EXISTS `shkeeper`;
+CREATE DATABASE IF NOT EXISTS `ethereum-shkeeper`;

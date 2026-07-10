@@ -1,0 +1,94 @@
+# Local evaluation stack for SHKeeper with the Ethereum (ETH-USDT / ETH-USDC)
+# backend, wired to point at an EXTERNAL RPC (Sepolia testnet by default) so no
+# multi-hundred-GB geth sync is needed.
+#
+# Reverse-engineered from the official Helm chart (vsys-host/helm-charts) into a
+# minimal docker-compose for local testing. Images are the same published ones
+# the chart uses.
+#
+#   docker compose -f deploy/docker-compose.eval.yml --env-file deploy/.env up -d
+#   open http://localhost:5000     (first run: set an admin password)
+#
+# See deploy/README.md for the full walkthrough (RPC, faucet, address gen, sweep).
+
+services:
+  mariadb:
+    image: mariadb:10.9.3
+    container_name: mwr-mariadb
+    environment:
+      MARIADB_ROOT_PASSWORD: shkeeper
+    volumes:
+      - ./initdb:/docker-entrypoint-initdb.d:ro
+      - mariadb-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: redis:7
+    container_name: mwr-redis
+
+  # Ethereum backend — HTTP API on :6000, reached by main shkeeper via this
+  # service name ("ethereum-shkeeper"), which the chart hardcodes.
+  ethereum-shkeeper:
+    image: vsyshost/evm-shkeeper:1.1.1
+    container_name: mwr-eth-app
+    command: ["gunicorn","--access-logfile=-","--workers=1","--threads=16","--timeout=600","--bind=0.0.0.0:6000","run:server"]
+    environment:
+      WALLET: ETH
+      CURRENT_ETH_NETWORK: ${CURRENT_ETH_NETWORK:-sepolia}
+      FULLNODE_URL: ${FULLNODE_URL:?set FULLNODE_URL in deploy/.env}
+      ETH_USERNAME: test
+      ETH_PASSWORD: test
+      SHKEEPER_BACKEND_KEY: key
+      SHKEEPER_HOST: shkeeper:5000
+      REDIS_HOST: redis
+      SQLALCHEMY_DATABASE_URI: mariadb+pymysql://root:shkeeper@mariadb/ethereum-shkeeper?charset=utf8mb4
+    depends_on:
+      mariadb: { condition: service_healthy }
+      redis:   { condition: service_started }
+
+  # Celery worker + beat: does the deposit scanning and the sweep/payout tasks.
+  ethereum-shkeeper-tasks:
+    image: vsyshost/evm-shkeeper:1.1.1
+    container_name: mwr-eth-tasks
+    command: ["celery","-A","celery_worker.celery","worker","--loglevel=info","-B"]
+    environment:
+      WALLET: ETH
+      C_FORCE_ROOT: "1"
+      CURRENT_ETH_NETWORK: ${CURRENT_ETH_NETWORK:-sepolia}
+      FULLNODE_URL: ${FULLNODE_URL:?set FULLNODE_URL in deploy/.env}
+      ETH_USERNAME: test
+      ETH_PASSWORD: test
+      SHKEEPER_BACKEND_KEY: key
+      SHKEEPER_HOST: shkeeper:5000
+      REDIS_HOST: redis
+      SQLALCHEMY_DATABASE_URI: mariadb+pymysql://root:shkeeper@mariadb/ethereum-shkeeper?charset=utf8mb4
+    depends_on:
+      mariadb: { condition: service_healthy }
+      redis:   { condition: service_started }
+      ethereum-shkeeper: { condition: service_started }
+
+  # Main gateway UI + API on :5000.
+  shkeeper:
+    image: vsyshost/shkeeper:2.5.29
+    container_name: mwr-shkeeper
+    ports:
+      - "5000:5000"
+    environment:
+      SHKEEPER_BACKEND_KEY: key
+      ETH_WALLET: enabled
+      ETH_USDT_WALLET: enabled
+      ETH_USDC_WALLET: enabled
+      ETH_USERNAME: test
+      ETH_PASSWORD: test
+    volumes:
+      - shkeeper-instance:/shkeeper.io/instance
+    depends_on:
+      ethereum-shkeeper: { condition: service_started }
+
+volumes:
+  mariadb-data:
+  shkeeper-instance:
