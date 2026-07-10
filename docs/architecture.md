@@ -111,6 +111,31 @@ stablecoin auto-conversion. Avoid: custodial lock-in, opaque key handling.
 - Don't hand-roll nonce management naïvely — parallel sweeps need a nonce manager
   and per-tx retry/backoff.
 
+## 5b. Local evaluation results (validated)
+
+Stood the SHKeeper stack up locally via [deploy/](../deploy/) (SHKeeper 2.5.29 +
+evm-shkeeper 1.1.1 + MariaDB + Redis) against a **public Sepolia RPC** — no node
+sync. Confirmed hands-on:
+
+- ✅ Gateway boots and **registers ETH-USDT / ETH-USDC wallets** by talking to
+  the `ethereum-shkeeper` backend.
+- ✅ **Mass deposit-address generation works**: minted 58 unique ETH-USDT
+  addresses via `payment_request`, **~39 addresses/sec** single-threaded
+  (≈25s for 1000). Each is bound to a unique `external_id` — the Electrum-style
+  "many receiving addresses" model.
+- ✅ Deposit **private keys are encrypted at rest** (per-wallet account password,
+  entered at `/unlock`; the backend fetches it via `/api/v1/ETH/decrypt`).
+- ✅ Source-confirmed that `multipayout` **sends one tx per address** — no atomic
+  batch sweep on the ETH account model (matches §2–§3).
+- ⏭ Not yet run: a **funded** end-to-end sweep. That needs Sepolia ETH in the fee
+  account + a test ERC-20 in the deposit addresses (faucet-gated), then
+  `multipayout` to measure real gas. This is the natural next step.
+
+Takeaway: **buy-vs-build leans "buy/adopt SHKeeper"** — it already does issuance,
+encrypted custody, deposit scanning, gas-funded ERC-20 sweeps, and payout
+callbacks. The main open question is cost/scale on L1 (see §3D and the calculator),
+not capability.
+
 ## 6. Suggested build order
 
 1. Decide **token + chain** (native ETH vs USDT; L1 vs L2 vs Tron). ← blocking

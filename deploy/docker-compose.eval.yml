@@ -21,10 +21,10 @@ services:
       - ./initdb:/docker-entrypoint-initdb.d:ro
       - mariadb-data:/var/lib/mysql
     healthcheck:
-      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      test: ["CMD-SHELL", "mariadb -uroot -pshkeeper -e 'SELECT 1' >/dev/null 2>&1 || exit 1"]
       interval: 5s
       timeout: 5s
-      retries: 20
+      retries: 30
 
   redis:
     image: redis:7
@@ -76,9 +76,10 @@ services:
     image: vsyshost/shkeeper:2.5.29
     container_name: mwr-shkeeper
     ports:
-      - "5000:5000"
+      - "5050:5000"
     environment:
       SHKEEPER_BACKEND_KEY: key
+      SHKEEPER_BTC_BACKEND_KEY: key   # main service validates backend calls against THIS
       ETH_WALLET: enabled
       ETH_USDT_WALLET: enabled
       ETH_USDC_WALLET: enabled
